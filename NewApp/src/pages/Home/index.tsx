@@ -44,7 +44,7 @@ const Home: React.FC = () => {
         <Container>
             <Logo>Brasil News</Logo>
 
-            <Title>Seus jornais em um aplicativo.</Title>
+            <Title>Todos seus jornais em um aplicativo.</Title>
 
             <Cards>
                 {jornais.map((item) => {
