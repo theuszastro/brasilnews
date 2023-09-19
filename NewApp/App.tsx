@@ -1,12 +1,46 @@
 import { useEffect } from 'react';
+import { View } from 'react-native';
+
+import mobileAds, { MaxAdContentRating } from 'react-native-google-mobile-ads';
+
+import { getStatusBarHeight } from 'react-native-status-bar-height';
 
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+import Popup from './src/components/Popup';
+
 import Home from './src/pages/Home';
+import Portal from './src/pages/Portal';
+import Content from './src/pages/Content';
+
+import ContentProvider from './src/contexts/ContentProvider';
+import NetworkProvider from './src/contexts/NetworkProvider';
+import AdProvider from './src/contexts/AdProvider';
+
+// banner
+// ca-app-pub-1471961623325438/3672916112
+
+// intersitial
+// ca-app-pub-1471961623325438/5776335271
+
+mobileAds()
+    .setRequestConfiguration({
+        maxAdContentRating: MaxAdContentRating.PG,
+        tagForChildDirectedTreatment: true,
+        tagForUnderAgeOfConsent: true,
+        testDeviceIdentifiers: ['EMULATOR'],
+    })
+    .then(console.log)
+    .catch(console.error);
 
 SplashScreen.preventAutoHideAsync();
+
+const Stack = createNativeStackNavigator();
 
 export default function App() {
     const [fontsLoaded] = useFonts({
@@ -33,10 +67,30 @@ export default function App() {
     if (!fontsLoaded) return null;
 
     return (
-        <>
-            <Home />
+        <ContentProvider>
+            <NetworkProvider>
+                <AdProvider>
+                    <View style={{ flex: 1, backgroundColor: '#000' }}>
+                        <NavigationContainer>
+                            <Stack.Navigator
+                                screenOptions={{
+                                    headerShown: false,
 
-            <StatusBar style="light" networkActivityIndicatorVisible backgroundColor="#000" />
-        </>
+                                    contentStyle: { paddingTop: getStatusBarHeight(), backgroundColor: '#000' },
+                                }}
+                            >
+                                <Stack.Screen name="Home" component={Home} />
+                                <Stack.Screen name="Portal" component={Portal} />
+                                <Stack.Screen name="Content" component={Content} />
+                            </Stack.Navigator>
+                        </NavigationContainer>
+
+                        <Popup />
+                    </View>
+
+                    <StatusBar style="light" networkActivityIndicatorVisible backgroundColor="#000" />
+                </AdProvider>
+            </NetworkProvider>
+        </ContentProvider>
     );
 }

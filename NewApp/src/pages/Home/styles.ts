@@ -10,7 +10,7 @@ export const Container = styled.View`
 
     background-color: #000;
 
-    padding: ${getStatusBarHeight()}px ${wp('5%')}px 0;
+    padding: 0 ${wp('5%')}px;
 `;
 
 export const Logo = styled.Text.attrs({
@@ -57,4 +57,24 @@ export const CardImage = styled.Image.attrs({
     height: ${wp('88%') / 4}px;
 
     border-radius: 10px;
+`;
+
+export const Box = styled.View`
+    border: 1px solid #ff2d00;
+    border-radius: 5px;
+
+    background-color: #ff2d0060;
+
+    padding: ${wp('4%')}px;
+
+    margin-top: ${wp('3%')}px;
+`;
+
+export const BoxTitle = styled.Text.attrs({
+    allowFontScaling: false,
+})`
+    font-size: ${wp('3.6%')}px;
+    font-family: 'Poppins-SemiBold';
+
+    color: #fff;
 `;
