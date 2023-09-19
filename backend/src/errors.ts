@@ -12,6 +12,9 @@ export const ErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
         case 'portal invalid':
             return error('this portal not exists');
 
+        case 'page invalid':
+            return error('this page is bigger of totalPages');
+
         case 'news invalid':
             return error('this news not exists');
 

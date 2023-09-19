@@ -7,20 +7,29 @@ generator client {
     provider = "prisma-client-js"
 }
 
+model NewsCategory {
+    id String @id
+    name String
+    portalName String
+    
+    news News[]
+}
+
 model News {
     id String @id
     title String
     description String
     from String
     time String
-
     cover String
-
-    portalName String
     url String
-    category String
+    updatedAt String
+    createdAt String
 
     data NewsArticle[]
+
+    categoryId String?
+    category NewsCategory? @relation(fields: [categoryId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 }
 
 model NewsContent {
@@ -81,9 +90,3 @@ model NewsList {
     article NewsArticle? @relation(fields: [articleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
 }
 
-model Mining {
-    id String @id
-    name String
-    page Int
-    portal String
-}

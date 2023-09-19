@@ -1,9 +1,56 @@
-import { NewsContentPart } from '@prisma/client';
-import { writeFile } from 'fs/promises';
 import * as htmlparser2 from 'htmlparser2';
 
-export class Parser {
-    constructor() {}
+export class G1Parser {
+    constructor() {
+        this.parseContent = this.parseContent;
+        this.parse = this.parse;
+    }
+
+    async parseContent(data: {
+        time: string;
+        from: string;
+        contents: Array<{ quote?: string; title?: string; content?: string; image?: string; list?: Array<string> }>;
+    }) {
+        const contents = [];
+
+        for (let { content, quote, title, list, image } of data.contents) {
+            if (content) {
+                contents.push({ content: this.parse(content) });
+
+                continue;
+            }
+
+            if (quote) {
+                contents.push({ quote: this.parse(quote) });
+
+                continue;
+            }
+
+            if (title) {
+                contents.push({
+                    title: this.parse(title)
+                        .map(item => item.text.trim())
+                        .join(' '),
+                });
+
+                continue;
+            }
+
+            if (list.length >= 1) {
+                contents.push({ list: list.map(i => this.parse(i)).flat() });
+
+                continue;
+            }
+
+            contents.push({ image });
+        }
+
+        return {
+            from: data.from,
+            time: data.time,
+            contents,
+        };
+    }
 
     parse(content: string) {
         const contents = [] as Array<{
@@ -18,13 +65,6 @@ export class Parser {
 
         const parser = new htmlparser2.Parser({
             onopentag(name, attributes) {
-                /*
-                 * This fires when a new tag is opened.
-                 *
-                 * If you don't need an aggregated `attributes` object,
-                 * have a look at the `onopentagname` and `onattribute` events.
-                 */
-
                 tags.push({
                     name,
                     text: '',
@@ -43,7 +83,7 @@ export class Parser {
                 }
 
                 contents.push({
-                    text,
+                    text: text.trim(),
                     href: '',
                     isHighlight: false,
                     isBold: false,
@@ -54,14 +94,14 @@ export class Parser {
                 const index = tags.findIndex(c => c.name == name);
 
                 if (['a', 'span', 'b', 'strong'].includes(name)) {
-                    if (index! + -1) {
+                    if (index != -1) {
                         tags[index].isClosed = true;
                         tags[index].isOpen = false;
 
                         const tag = tags[index];
 
                         contents.push({
-                            text: tag.text,
+                            text: tag.text.trim(),
                             href: tag.name === 'a' ? tag.attrs.href : '',
 
                             isHighlight: tag.attrs.class ? tag.attrs.class.includes('highlight') : false,

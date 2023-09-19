@@ -1,263 +1,283 @@
-import puppeteer, { Browser } from 'puppeteer';
-import axios from 'axios';
+import { Page } from 'puppeteer';
 
-import { NewsContentPart } from '@prisma/client';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { randomUUID } from 'crypto';
 
 import { prisma } from '../services';
-import { Parser } from './Parser';
-import { writeFile } from 'fs/promises';
+import { G1Parser } from './parsers/G1';
 
-const urls = {
-    Agro: 'https://falkor-cda.bastian.globo.com/tenants/g1/instances/9153bfe9-5bed-4675-af3e-be408671ce08/posts/page/:currentPage',
-    Ciência:
-        'https://falkor-cda.bastian.globo.com/tenants/g1/instances/6f8adb97-044c-4bf3-9841-fad66bfa30e5/posts/page/:currentPage',
+type ReadNewsProps = {
+    page: Page;
+    url: string;
+};
+
+type ReadingProps = {
+    page: Page;
+    url: string;
+    category: string;
+};
+
+export const G1Urls = {
+    Agro: 'https://g1.globo.com/economia/agronegocios',
+    Ciência: 'https://g1.globo.com/ciencia',
+    Carros: 'https://g1.globo.com/carros',
+    Economia: 'https://g1.globo.com/economia',
+    Educação: 'https://g1.globo.com/educacao',
+    Empreendedorismo: 'https://g1.globo.com/empreendedorismo',
+    'Meio Ambiente': 'https://g1.globo.com/meio-ambiente',
+    Loteria: 'https://g1.globo.com/loterias',
+    Inovação: 'https://g1.globo.com/inovacao',
+    Mundo: 'https://g1.globo.com/mundo',
+    Política: 'https://g1.globo.com/politica',
+    Turismo: 'https://g1.globo.com/turismo-e-viagem',
+    Saúde: 'https://g1.globo.com/saude',
+    Tecnologia: 'https://g1.globo.com/tecnologia',
+    Trabalho: 'https://g1.globo.com/trabalho-e-carreira',
 };
 
 const sleep = t => new Promise(r => setTimeout(r, t));
 
+dayjs.extend(customParseFormat);
+
 class G1News {
-    browser: Browser;
+    parser = new G1Parser();
 
     constructor() {
-        this.setup = this.setup.bind(this);
-        this.miningNews = this.miningNews.bind(this);
+        this.readingNews = this.readingNews.bind(this);
         this.read = this.read.bind(this);
     }
 
-    async setup() {
-        this.browser = await puppeteer.launch({ headless: false, defaultViewport: { width: 1920, height: 1080 } });
+    createISO(time: string) {
+        const [date, hour] = time.trim().split(' ');
+        const [h, m = '0'] = hour.split('h');
+
+        return dayjs(date, 'DD/MM/YYYY').set('hour', Number(h)).set('minute', Number(m)).set('second', 0).format();
     }
 
-    async miningNews(page: number, name: string) {
-        const currentPage = await prisma.mining.findFirst({ where: { page, name, portal: 'G1' } });
-        if (currentPage) return this.miningNews(page + 1, name);
+    async readingNews(data: ReadingProps) {
+        const { page, url, category } = data;
 
-        const { data } = await axios.get(urls[name].replace(':currentPage', Number(page)));
+        try {
+            await page.goto(url, { timeout: 10_000 * 6, waitUntil: 'networkidle2' });
 
-        for await (let { content } of data.items) {
-            if (content.section == '') continue;
+            for await (let _ of Array.from({ length: 3 })) {
+                const button = await page.$('.load-more.gui-color-primary-bg');
+                if (button) {
+                    await button.click();
 
-            const newsCheck = await prisma.news.findFirst({ where: { title: content.title, portalName: 'G1' } });
-            if (newsCheck) continue;
+                    await sleep(1_000);
 
-            if (!content.image) continue;
+                    continue;
+                }
 
-            const news = await this.read(content.url);
-            if (typeof news != 'object') {
-                continue;
+                await page.evaluate(() => document.body.scroll({ behavior: 'smooth', left: 0, top: 100_000 * 40 }));
+
+                await sleep(2_000);
             }
 
-            const { contents, from, time } = await this.parseContent(news);
+            const list = await page.$eval('div.bstn-fd.bstn-fd-csr > div._evg > div > div > div._evg', e => {
+                const data = [];
 
-            const [id, trans] = [randomUUID(), []];
+                for (let child of Array.from(e.children)) {
+                    try {
+                        const image = child.querySelector('img').src;
 
-            trans.push(
-                prisma.news.create({
-                    data: {
-                        id,
-                        title: content.title,
-                        description: content.summary,
-                        from,
-                        time,
-                        portalName: 'G1',
-                        url: content.url,
-                        cover: content.image.sizes.L.url,
-                        category: name,
-                    },
-                })
-            );
+                        const element = child.querySelector(
+                            '.feed-post-body-title.gui-color-primary.gui-color-hover a'
+                        );
 
-            for (let { content, quote, title, image, list } of contents) {
-                const articleId = randomUUID();
+                        const title = element.innerHTML;
+                        const url = element.getAttribute('href');
+                        const description = child.querySelector('.feed-post-body-resumo > p').innerHTML;
+
+                        data.push({
+                            title,
+                            url,
+                            description,
+                            image,
+                        });
+                    } catch (e) {}
+                }
+
+                return data;
+            });
+
+            await sleep(2_000);
+
+            let _category = await prisma.newsCategory.findFirst({ where: { name: category } });
+            if (!_category) {
+                _category = await prisma.newsCategory.create({
+                    data: { name: category, id: randomUUID(), portalName: 'G1' },
+                });
+            }
+
+            for await (let news of list.map(i => ({ ...i, title: this.parser.parse(i.title)[0].text }))) {
+                const alreadyExists = await prisma.news.findFirst({ where: { title: news.title.trim() } });
+                if (alreadyExists) continue;
+
+                const data = await this.read({ page, url: news.url });
+                if (typeof data == 'boolean') continue;
+
+                const iso = this.createISO(data.time);
+
+                const [id, trans] = [randomUUID(), []];
 
                 trans.push(
-                    prisma.newsArticle.create({
+                    prisma.news.create({
                         data: {
-                            id: articleId,
-                            newsId: id as string,
-
-                            ...(title && { title: title.trim() }),
-                            ...(image && { image: image.trim() }),
+                            id,
+                            title: news.title.trim(),
+                            description: news.description.trim(),
+                            from: data.from,
+                            time: data.time,
+                            url: news.url,
+                            cover: news.image,
+                            createdAt: iso,
+                            updatedAt: iso,
+                            categoryId: _category.id,
                         },
                     })
                 );
 
-                if (content) {
-                    const contentId = randomUUID();
+                for (let { content, quote, title, image, list } of data.contents) {
+                    const articleId = randomUUID();
 
                     trans.push(
-                        prisma.newsContent.create({
+                        prisma.newsArticle.create({
                             data: {
-                                id: contentId,
-                                articleId,
+                                id: articleId,
+                                newsId: id as string,
+
+                                ...(title && { title: title.trim() }),
+                                ...(image && { image: image.trim() }),
                             },
                         })
                     );
 
-                    for (let { text, isBold, isHighlight, isLink, href } of content) {
+                    if (content) {
+                        const contentId = randomUUID();
+
                         trans.push(
-                            prisma.newsContentPart.create({
+                            prisma.newsContent.create({
                                 data: {
-                                    id: randomUUID(),
-
-                                    isBold,
-                                    isHighlight,
-
-                                    isLink,
-                                    href: Boolean(href) ? href : '',
-
-                                    text,
-
-                                    contentId,
+                                    id: contentId,
+                                    articleId,
                                 },
                             })
                         );
+
+                        for (let { text, isBold, isHighlight, isLink, href } of content) {
+                            trans.push(
+                                prisma.newsContentPart.create({
+                                    data: {
+                                        id: randomUUID(),
+
+                                        isBold,
+                                        isHighlight,
+
+                                        isLink,
+                                        href: Boolean(href) ? href : '',
+
+                                        text,
+
+                                        contentId,
+                                    },
+                                })
+                            );
+                        }
                     }
-                }
 
-                if (quote) {
-                    const contentId = randomUUID();
+                    if (quote) {
+                        const contentId = randomUUID();
 
-                    trans.push(
-                        prisma.newsContent.create({
-                            data: {
-                                id: contentId,
-                                articleId,
-                            },
-                        })
-                    );
-
-                    for (let { text, isBold, isHighlight, isLink, href } of quote) {
                         trans.push(
-                            prisma.newsContentPart.create({
+                            prisma.newsContent.create({
                                 data: {
-                                    id: randomUUID(),
-
-                                    isBold,
-                                    isHighlight,
-
-                                    isLink,
-                                    href: Boolean(href) ? href : '',
-
-                                    text,
-
-                                    quoteId: contentId,
+                                    id: contentId,
+                                    articleId,
                                 },
                             })
                         );
+
+                        for (let { text, isBold, isHighlight, isLink, href } of quote) {
+                            trans.push(
+                                prisma.newsContentPart.create({
+                                    data: {
+                                        id: randomUUID(),
+
+                                        isBold,
+                                        isHighlight,
+
+                                        isLink,
+                                        href: Boolean(href) ? href : '',
+
+                                        text,
+
+                                        quoteId: contentId,
+                                    },
+                                })
+                            );
+                        }
                     }
-                }
 
-                if (list) {
-                    const listId = randomUUID();
+                    if (list) {
+                        const listId = randomUUID();
 
-                    trans.push(
-                        prisma.newsList.create({
-                            data: {
-                                id: listId,
-                                articleId,
-                            },
-                        })
-                    );
-
-                    for (let { text, isBold, isHighlight, isLink, href } of list) {
                         trans.push(
-                            prisma.newsContentPart.create({
+                            prisma.newsList.create({
                                 data: {
-                                    id: randomUUID(),
-
-                                    isBold,
-                                    isHighlight,
-
-                                    isLink,
-                                    href: Boolean(href) ? href : '',
-
-                                    text,
-
-                                    listId,
+                                    id: listId,
+                                    articleId,
                                 },
                             })
                         );
+
+                        for (let { text, isBold, isHighlight, isLink, href } of list) {
+                            trans.push(
+                                prisma.newsContentPart.create({
+                                    data: {
+                                        id: randomUUID(),
+
+                                        isBold,
+                                        isHighlight,
+
+                                        isLink,
+                                        href: Boolean(href) ? href : '',
+
+                                        text,
+
+                                        listId,
+                                    },
+                                })
+                            );
+                        }
                     }
                 }
+
+                try {
+                    await prisma.$transaction(trans);
+                } catch (e) {
+                    // console.log(e);
+                    process.send(e);
+                }
+
+                // @ts-ignore
+                process.send({ title: news.title, content: news.description });
+                // console.log({ title: news.title, content: news.description });
+
+                await sleep(5000);
+
+                break;
             }
-
-            try {
-                await prisma.$transaction(trans);
-            } catch (e) {
-                process.send(e);
-            }
-            process.send({ title: content.title, content: content.summary });
-
-            await sleep(5000);
+        } catch (e) {
+            console.log(e);
         }
-
-        await prisma.mining.create({
-            data: {
-                id: randomUUID(),
-                name,
-                page,
-                portal: 'G1',
-            },
-        });
-
-        await sleep(30000);
-
-        return this.miningNews(page + 1, name);
     }
 
-    async parseContent(data: {
-        time: string;
-        from: string;
-        contents: Array<{ quote?: string; title?: string; content?: string; image?: string; list?: Array<string> }>;
-    }) {
-        const parser = new Parser();
-        const contents = [];
-
-        for (let { content, quote, title, list, image } of data.contents) {
-            if (content) {
-                contents.push({ content: parser.parse(content) });
-
-                continue;
-            }
-
-            if (quote) {
-                contents.push({ quote: parser.parse(quote) });
-
-                continue;
-            }
-
-            if (title) {
-                contents.push({
-                    title: parser
-                        .parse(title)
-                        .map(item => item.text.trim())
-                        .join(' '),
-                });
-
-                continue;
-            }
-
-            if (list.length >= 1) {
-                contents.push({ list: list.map(i => parser.parse(i)[0]) });
-
-                continue;
-            }
-
-            contents.push({ image });
-        }
-
-        return {
-            from: data.from,
-            time: data.time,
-            contents,
-        };
-    }
-
-    async read(url: string) {
-        const page = await this.browser.newPage();
+    async read(data: ReadNewsProps) {
+        const { page, url } = data;
 
         try {
             await page.goto(url, { timeout: 10_000 * 6, waitUntil: 'networkidle2' });
@@ -326,17 +346,193 @@ class G1News {
                 });
             }
 
-            await page.close();
-
-            return {
+            return await this.parser.parseContent({
                 from,
                 time,
                 contents,
-            };
+            });
         } catch (e) {
-            await page.close();
+            return false;
         }
     }
+
+    // async miningNews(page: number, name: string) {
+    //     const currentPage = await prisma.mining.findFirst({ where: { page, name, portal: 'G1' } });
+    //     if (currentPage) return this.miningNews(page + 1, name);
+
+    //     const { data } = await axios.get(urls[name].replace(':currentPage', Number(page)));
+
+    //     for await (let { content } of data.items) {
+    //         if (content.section == '') continue;
+
+    //         const newsCheck = await prisma.news.findFirst({ where: { title: content.title, portalName: 'G1' } });
+    //         if (newsCheck) continue;
+
+    //         if (!content.image) continue;
+
+    //         const news = await this.read(content.url);
+    //         if (typeof news != 'object') {
+    //             continue;
+    //         }
+
+    //         const { contents, from, time } = await this.parseContent(news);
+
+    //         const [id, trans] = [randomUUID(), []];
+
+    //         trans.push(
+    //             prisma.news.create({
+    //                 data: {
+    //                     id,
+    //                     title: content.title,
+    //                     description: content.summary,
+    //                     from,
+    //                     time,
+    //                     portalName: 'G1',
+    //                     url: content.url,
+    //                     cover: content.image.sizes.L.url,
+    //                     category: name,
+    //                 },
+    //             })
+    //         );
+
+    //         for (let { content, quote, title, image, list } of contents) {
+    //             const articleId = randomUUID();
+
+    //             trans.push(
+    //                 prisma.newsArticle.create({
+    //                     data: {
+    //                         id: articleId,
+    //                         newsId: id as string,
+
+    //                         ...(title && { title: title.trim() }),
+    //                         ...(image && { image: image.trim() }),
+    //                     },
+    //                 })
+    //             );
+
+    //             if (content) {
+    //                 const contentId = randomUUID();
+
+    //                 trans.push(
+    //                     prisma.newsContent.create({
+    //                         data: {
+    //                             id: contentId,
+    //                             articleId,
+    //                         },
+    //                     })
+    //                 );
+
+    //                 for (let { text, isBold, isHighlight, isLink, href } of content) {
+    //                     trans.push(
+    //                         prisma.newsContentPart.create({
+    //                             data: {
+    //                                 id: randomUUID(),
+
+    //                                 isBold,
+    //                                 isHighlight,
+
+    //                                 isLink,
+    //                                 href: Boolean(href) ? href : '',
+
+    //                                 text,
+
+    //                                 contentId,
+    //                             },
+    //                         })
+    //                     );
+    //                 }
+    //             }
+
+    //             if (quote) {
+    //                 const contentId = randomUUID();
+
+    //                 trans.push(
+    //                     prisma.newsContent.create({
+    //                         data: {
+    //                             id: contentId,
+    //                             articleId,
+    //                         },
+    //                     })
+    //                 );
+
+    //                 for (let { text, isBold, isHighlight, isLink, href } of quote) {
+    //                     trans.push(
+    //                         prisma.newsContentPart.create({
+    //                             data: {
+    //                                 id: randomUUID(),
+
+    //                                 isBold,
+    //                                 isHighlight,
+
+    //                                 isLink,
+    //                                 href: Boolean(href) ? href : '',
+
+    //                                 text,
+
+    //                                 quoteId: contentId,
+    //                             },
+    //                         })
+    //                     );
+    //                 }
+    //             }
+
+    //             if (list) {
+    //                 const listId = randomUUID();
+
+    //                 trans.push(
+    //                     prisma.newsList.create({
+    //                         data: {
+    //                             id: listId,
+    //                             articleId,
+    //                         },
+    //                     })
+    //                 );
+
+    //                 for (let { text, isBold, isHighlight, isLink, href } of list) {
+    //                     trans.push(
+    //                         prisma.newsContentPart.create({
+    //                             data: {
+    //                                 id: randomUUID(),
+
+    //                                 isBold,
+    //                                 isHighlight,
+
+    //                                 isLink,
+    //                                 href: Boolean(href) ? href : '',
+
+    //                                 text,
+
+    //                                 listId,
+    //                             },
+    //                         })
+    //                     );
+    //                 }
+    //             }
+    //         }
+
+    //         try {
+    //             await prisma.$transaction(trans);
+    //         } catch (e) {
+    //             process.send(e);
+    //         }
+    //         process.send({ title: content.title, content: content.summary });
+
+    //         await sleep(5000);
+    //     }
+
+    //     await prisma.mining.create({
+    //         data: {
+    //             id: randomUUID(),
+    //             name,
+    //             page,
+    //             portal: 'G1',
+    //         },
+    //     });
+
+    //     await sleep(30000);
+
+    //     return this.miningNews(page + 1, name);
+    // }
 }
 
 export default G1News;

@@ -1,16 +1,19 @@
-import G1News from '../classes/G1';
+import puppeteer from 'puppeteer';
+import G1News, { G1Urls } from '../classes/G1';
 
 class Child {
     constructor() {
-        this.mining();
+        this.setup();
     }
 
-    async mining() {
+    async setup() {
+        const browser = await puppeteer.launch({ headless: false, defaultViewport: { width: 1920, height: 1080 } });
+        const page = await browser.newPage();
         const g1 = new G1News();
 
-        await g1.setup();
-        // await g1.miningNews(1, 'Ciência');
-        await g1.miningNews(1, 'Agro');
+        // for await (let [category, url] of Object.entries(G1Urls)) {
+        //     await g1.readingNews({ category, page, url });
+        // }
     }
 }
 

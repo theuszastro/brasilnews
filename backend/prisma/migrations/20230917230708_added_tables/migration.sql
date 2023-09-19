@@ -1,4 +1,11 @@
 -- CreateTable
+CREATE TABLE "NewsCategory" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "portalName" TEXT NOT NULL
+);
+
+-- CreateTable
 CREATE TABLE "News" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "title" TEXT NOT NULL,
@@ -6,9 +13,11 @@ CREATE TABLE "News" (
     "from" TEXT NOT NULL,
     "time" TEXT NOT NULL,
     "cover" TEXT NOT NULL,
-    "portalName" TEXT NOT NULL,
     "url" TEXT NOT NULL,
-    "category" TEXT NOT NULL
+    "updatedAt" TEXT NOT NULL,
+    "createdAt" TEXT NOT NULL,
+    "categoryId" TEXT,
+    CONSTRAINT "News_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "NewsCategory" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -51,12 +60,4 @@ CREATE TABLE "NewsList" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "articleId" TEXT,
     CONSTRAINT "NewsList_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "NewsArticle" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-
--- CreateTable
-CREATE TABLE "Mining" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "name" TEXT NOT NULL,
-    "page" INTEGER NOT NULL,
-    "portal" TEXT NOT NULL
 );

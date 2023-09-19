@@ -10,7 +10,21 @@ function format(news: any[]) {
 
         for (let [index, item] of news[i].data.entries()) {
             contents.push({
-                ...item,
+                ...Object.entries(item)
+                    .map(([key, value]) => {
+                        if (value || typeof value == 'boolean') {
+                            return [key, value];
+                        }
+
+                        return false;
+                    })
+                    .filter(Boolean)
+                    .reduce((acc, item) => {
+                        acc[item[0]] = item[1];
+
+                        return acc;
+                    }, {}),
+
                 ...(item.content && { content: item.content.map(item => item.parts).flat() }),
                 ...(item.quote && { quote: item.quote.map(item => item.quoteParts).flat() }),
                 ...(item.list && { list: item.list.map(item => item.parts).flat() }),
@@ -21,10 +35,7 @@ function format(news: any[]) {
             }
         }
 
-        formated.push({
-            ...news[i],
-            data: contents,
-        });
+        formated.push({ ...news[i], data: contents });
     }
 
     return formated;
@@ -32,79 +43,63 @@ function format(news: any[]) {
 
 class NewsController {
     async list(req: Request, res: Response) {
-        const { portal, category = '', page = '1' } = req.query as Record<string, string>;
+        const { portal, categoryId = '', page = '1' } = req.query as Record<string, string>;
         if (!portal) throw Error('portal invalid');
 
-        if (category) {
-            const total = await prisma.news.count({
-                where: { category, portalName: portal.trim() },
-            });
-            const news = await prisma.news.findMany({
-                where: { category, portalName: portal.trim() },
-                include: {
-                    data: {
-                        include: {
-                            content: { include: { parts: true } },
-                            quote: { include: { quoteParts: true } },
-                            list: { include: { parts: true } },
+        const where = { portalName: portal, ...(categoryId && { categoryId }) };
+
+        const total = await prisma.newsCategory.count({ where });
+        const totalPages = Math.ceil(total / 5);
+
+        if (Number(page) > totalPages) throw Error('page invalid');
+
+        const data = await prisma.newsCategory.findMany({
+            ...(Number(page) > 1 && { skip: (Number(page) - 1) * 5 }),
+            orderBy: { name: 'asc' },
+            where,
+            take: 5,
+            select: {
+                id: true,
+                name: true,
+                _count: {
+                    select: {
+                        news: true,
+                    },
+                },
+                news: {
+                    take: 10,
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        title: true,
+                        cover: true,
+                        description: true,
+                        from: true,
+                        time: true,
+                        url: true,
+                        id: true,
+                        data: {
+                            include: {
+                                content: { include: { parts: true } },
+                                quote: { include: { quoteParts: true } },
+                                list: { include: { parts: true } },
+                            },
                         },
                     },
                 },
-                take: 5,
-                ...(Number(page) > 1 && { skip: (Number(page) - 1) * 5 }),
-            });
-
-            return res.json({
-                totalPages: Math.ceil(total / 5),
-                data: format(news),
-            });
-        }
-
-        const total = await prisma.mining.count({ where: { page: 1, portal: 'G1' } });
-        const categories = await prisma.mining.findMany({
-            where: { page: 1, portal: 'G1' },
-            take: 5,
-            ...(Number(page) > 1 && {
-                skip: (Number(page) - 1) * 5,
-            }),
+            },
         });
 
-        const data = [];
-        const promises = [];
-
-        for (let category of categories) {
-            promises.push(
-                (async () => {
-                    const total = await prisma.news.count({
-                        where: { category: category.name, portalName: portal.trim() },
-                    });
-                    const news = await prisma.news.findMany({
-                        where: { category: category.name, portalName: portal.trim() },
-                        include: {
-                            data: {
-                                include: {
-                                    content: { include: { parts: true } },
-                                    quote: { include: { quoteParts: true } },
-                                    list: { include: { parts: true } },
-                                },
-                            },
-                        },
-                        take: 5,
-                    });
-
-                    data.push({
-                        id: category.id,
-                        category: category.name,
-                        totalPages: Math.ceil(total / 5),
-                        data: format(news),
-                    });
-                })()
-            );
-        }
-
-        await Promise.all(promises);
-
-        return res.json({ totalPages: Math.ceil(total / 5), data });
+        return res.json({
+            totalPages,
+            data: data.map(item => {
+                return {
+                    id: item.id,
+                    name: item.name,
+                    totalPages: Math.ceil(item._count.news / 10),
+                    news: format(item.news),
+                };
+            }),
+        });
     }
 
     // async create(req: Request, res: Response) {
