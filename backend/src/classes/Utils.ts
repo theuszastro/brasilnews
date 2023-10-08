@@ -12,7 +12,7 @@ export class Utils {
             const { data } = await axios.get(url, { responseType: 'arraybuffer' });
             const buffer = Buffer.from(data, 'binary');
 
-            const newBuffer = await sharp(buffer).jpeg({ quality: 70 }).resize(144, 107).toBuffer();
+            const newBuffer = await sharp(buffer).jpeg({ quality: 100 }).resize(144, 107).toBuffer();
 
             const name = `${randomUUID()}-${randomUUID()}.jpg`;
 

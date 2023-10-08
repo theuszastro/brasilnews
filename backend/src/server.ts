@@ -16,10 +16,10 @@ app.use(routes);
 app.use(ErrorHandler);
 app.listen(3330);
 
-// const child = fork('build/src/childs/index.js', { env: process.env });
+const child = fork('build/src/childs/index.js', { env: process.env });
 
-// child.on('message', console.log);
-// process.on('beforeExit', code => child.kill());
+child.on('message', console.log);
+process.on('beforeExit', code => child.kill());
 
 // import { G1 } from './classes/G1';
 // (async () => {
