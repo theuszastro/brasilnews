@@ -10,11 +10,11 @@ import { ErrorHandler } from './errors';
 
 const app = express();
 
-app.use('/static', express.static('static'));
+// app.use('/static', express.static('static'));
 app.use(cors());
 app.use(routes);
 app.use(ErrorHandler);
-app.listen(3333);
+app.listen(3330);
 
 // const child = fork('build/src/childs/index.js', { env: process.env });
 
