@@ -15,11 +15,11 @@ class Cron {
     }
 
     async start() {
-        // if (dayjs().minute() % 2 == 0) {
-        await this.execute();
-        // }
+        if (dayjs().minute() % 10 == 0) {
+            await this.execute();
+        }
 
-        // this.timeout = setTimeout(this.start.bind(this), 1_000 * 60 - dayjs().second() * 1000);
+        this.timeout = setTimeout(this.start.bind(this), 1_000 * 60 - dayjs().second() * 1000);
     }
 
     async execute() {
