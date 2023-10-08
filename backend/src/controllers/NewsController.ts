@@ -8,7 +8,7 @@ function format(news: any[]) {
     for (let [i] of news.entries()) {
         const contents = [];
 
-        news[i].cover = `http://192.168.0.110:3333/static/${news[i].cover}`;
+        news[i].cover = `https://news.umbandatudosobre.com/static/${news[i].cover}`;
 
         for (let [index, item] of news[i].data.entries()) {
             contents.push({
@@ -23,7 +23,7 @@ function format(news: any[]) {
                     .filter(Boolean)
                     .reduce((acc, item) => {
                         if (item[0] == 'image') {
-                            item[1] = `http://192.168.0.110:3333/static/${item[1]}`;
+                            item[1] = `https://news.umbandatudosobre.com/static/${item[1]}`;
                         }
 
                         acc[item[0]] = item[1];
