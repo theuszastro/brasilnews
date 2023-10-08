@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = 'http://192.168.0.110:3333';
+const baseURL = 'https://news.umbandatudosobre.com';
 
 class Requests {
     portalsCategory = {} as any;
