@@ -21,7 +21,7 @@ class Requests {
 
         this.portals[name][page] = {
             // @ts-ignore
-            data: data.data.map(item => ({ ...item, page })),
+            data: data.data.map(item => ({ ...item, page: 1 })),
             page,
             totalPages: data.totalPages,
         };
@@ -29,20 +29,20 @@ class Requests {
         return this.portals[name][page];
     }
 
-    async loadNewsByCategory(name: string, category: string, page: number) {
-        if (this.category[category] && this.category[category][page]) return this.category[category][page];
+    async loadNewsByCategory(name: string, id: string, page: number) {
+        if (this.category[id] && this.category[id][page]) return this.category[id][page];
 
-        const { data } = await axios.get(`${baseURL}/news?portal=${name}&category=${category}&page=${page}`);
+        const { data } = await axios.get(`${baseURL}/news?portal=${name}&categoryId=${id}&page=${page}`);
 
-        if (!this.category[category]) this.category[category] = {};
+        if (!this.category[id]) this.category[id] = {};
 
-        this.category[category][page] = {
-            data: data.data,
+        this.category[id][page] = {
+            news: data.news,
             page,
             totalPages: data.totalPages,
         };
 
-        return this.category[category][page];
+        return this.category[id][page];
     }
 }
 

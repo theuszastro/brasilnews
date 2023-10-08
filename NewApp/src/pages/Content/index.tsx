@@ -45,9 +45,10 @@ const Content: React.FC = () => {
                 <Header title="" />
 
                 <Title>{params.title}</Title>
-                <Description>{params.description}</Description>
+                {params.description.length >= 1 && <Description>{params.description}</Description>}
+                {params.from.length >= 1 && <From>{params.from}</From>}
 
-                <From>{params.from}</From>
+                {/* <From>{params.from}</From> */}
                 <Time>{params.time}</Time>
 
                 <Box style={{ marginTop: 0, marginBottom: wp('4%') }}>
@@ -70,6 +71,8 @@ const Content: React.FC = () => {
                         return (
                             <ContentText key={Math.random().toString(36)}>
                                 {(item.content as any[]).map(item => {
+                                    if (item.text.trim().length < 1) return null;
+
                                     return (
                                         <ContentText
                                             key={item.id}

@@ -11,18 +11,33 @@ const jornais = [
             image: require('../../../assets/portals/g1.png'),
         },
         {
-            name: 'Folha de São Paulo',
-            image: require('../../../assets/portals/folha-de-sao-paulo.jpg'),
+            name: 'Diário de Santa Maria',
+            image: require('../../../assets/portals/diario-sm.jpg'),
         },
         {
-            name: 'O estadão',
-            image: require('../../../assets/portals/estadao.png'),
+            name: 'Diário Gaúcho',
+            image: require('../../../assets/portals/diario-gaucho.png'),
         },
     ],
+
     // [
+    // {
+    //     name: 'Zero Hora',
+    //     image: require('../../../assets/portals/zh.webp'),
+    // },
+
+    // {
+    //     name: 'O estadão',
+    //     image: require('../../../assets/portals/estadao.png'),
+    //  },
     //     {
-    //         name: 'Diário de Santa Maria',
-    //         image: require('../../../assets/portals/diario-sm.jpg'),
+    //         name: 'Folha de São Paulo',
+    //         image: require('../../../assets/portals/folha-de-sao-paulo.jpg'),
+    //     },
+
+    //     {
+    //         name: 'Forbes',
+    //         image: require('../../../assets/portals/forbes.jpg'),
     //     },
     //     {
     //         name: 'IstoÉ',
@@ -32,20 +47,11 @@ const jornais = [
     //         name: 'O Globo',
     //         image: require('../../../assets/portals/o-globo.jpg'),
     //     },
-    // ],
-    // [
-    //     {
-    //         name: 'Zero Hora',
-    //         image: require('../../../assets/portals/zh.webp'),
-    //     },
     //     {
     //         name: 'Uol',
     //         image: require('../../../assets/portals/uol.jpg'),
     //     },
-    //     {
-    //         name: 'Diário Gaúcho',
-    //         image: require('../../../assets/portals/diario-gaucho.png'),
-    //     },
+
     // ],
 ];
 

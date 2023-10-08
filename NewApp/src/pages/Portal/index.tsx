@@ -32,16 +32,16 @@ import { getStatusBarHeight } from 'react-native-status-bar-height';
 
 const GroupComplete: React.FC<{ item: any; index: number; portalName: string }> = ({ item, index, portalName }) => {
     const { setShowPopup, pushHistory } = useNetwork();
-    const { Portais, setPortais } = useContent();
+    const { setPortais } = useContent();
     const { navigate } = useNavigation();
 
     const buttonRef = useRef<ButtonRef>(null);
 
     return (
         <View key={item.id}>
-            <GroupTitle>{item.category}</GroupTitle>
+            <GroupTitle>{item.name}</GroupTitle>
 
-            {(item.data as any[]).map((item, index) => {
+            {(item.news as any[]).map((item, index) => {
                 if ((index + 1) % 10 == 0) {
                     return (
                         <View key={item.id}>
@@ -80,7 +80,7 @@ const GroupComplete: React.FC<{ item: any; index: number; portalName: string }> 
                         <CardDetails>
                             <CardTitle>{item.title}</CardTitle>
 
-                            <CardDescription>{item.description}</CardDescription>
+                            {item.description.length >= 1 && <CardDescription>{item.description}</CardDescription>}
                         </CardDetails>
                     </Card>
                 );
@@ -94,8 +94,8 @@ const GroupComplete: React.FC<{ item: any; index: number; portalName: string }> 
                     onPress={async () => {
                         buttonRef.current?.startAnimation();
 
-                        async function fetchNews(portalName: string, category: string, page = 1) {
-                            const news = await Requests.loadNewsByCategory(portalName, category, page);
+                        async function fetchNews(portalName: string, id: string, page = 1) {
+                            const news = await Requests.loadNewsByCategory(portalName, id, page);
 
                             setPortais(s => {
                                 return {
@@ -103,13 +103,13 @@ const GroupComplete: React.FC<{ item: any; index: number; portalName: string }> 
                                     [portalName]: {
                                         ...s[portalName],
 
-                                        totalPages: news.totalPages,
                                         data: s[portalName].data.map(d => {
-                                            if (d.category === category) {
+                                            if (d.id === id) {
                                                 return {
                                                     ...d,
+                                                    totalPages: news.totalPages,
                                                     page: item.page + 1,
-                                                    data: [...d.data, ...news.data],
+                                                    news: [...d.news, ...news.news],
                                                 };
                                             }
 
@@ -123,7 +123,7 @@ const GroupComplete: React.FC<{ item: any; index: number; portalName: string }> 
                         }
 
                         try {
-                            await fetchNews(portalName, item.category, item.page + 1);
+                            await fetchNews(portalName, item.id, item.page + 1);
                         } catch (e) {
                             buttonRef.current?.stopAnimation();
 
@@ -132,7 +132,7 @@ const GroupComplete: React.FC<{ item: any; index: number; portalName: string }> 
                             if (!isConnected && !isInternetReachable) {
                                 setShowPopup(true);
 
-                                pushHistory(fetchNews, [portalName, item.category, item.page + 1]);
+                                pushHistory(fetchNews, [portalName, item.id, item.page + 1]);
                             }
                         }
                     }}
@@ -141,7 +141,11 @@ const GroupComplete: React.FC<{ item: any; index: number; portalName: string }> 
                 </CustomButton>
             )}
 
-            {index % 4 == 0 && <Ad />}
+            {index % 4 == 0 && (
+                <View style={{ marginTop: wp('5%'), marginBottom: wp('-5%') }}>
+                    <Ad />
+                </View>
+            )}
         </View>
     );
 };
@@ -158,6 +162,10 @@ const Portal: React.FC = () => {
                 ListHeaderComponent={() => <Header title={params.name} />}
                 ListFooterComponent={() => {
                     if (page + 1 > totalPages) return null;
+
+                    console.log(page, totalPages);
+
+                    console.log(page + 1 > totalPages);
 
                     return (
                         <View style={{ marginVertical: wp('5%') }}>

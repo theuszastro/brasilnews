@@ -8,6 +8,8 @@ function format(news: any[]) {
     for (let [i] of news.entries()) {
         const contents = [];
 
+        news[i].cover = `http://192.168.0.110:3333/static/${news[i].cover}`;
+
         for (let [index, item] of news[i].data.entries()) {
             contents.push({
                 ...Object.entries(item)
@@ -20,6 +22,10 @@ function format(news: any[]) {
                     })
                     .filter(Boolean)
                     .reduce((acc, item) => {
+                        if (item[0] == 'image') {
+                            item[1] = `http://192.168.0.110:3333/static/${item[1]}`;
+                        }
+
                         acc[item[0]] = item[1];
 
                         return acc;
@@ -46,7 +52,46 @@ class NewsController {
         const { portal, categoryId = '', page = '1' } = req.query as Record<string, string>;
         if (!portal) throw Error('portal invalid');
 
-        const where = { portalName: portal, ...(categoryId && { categoryId }) };
+        const where = { portalName: portal, ...(categoryId && { id: categoryId }) };
+
+        if (categoryId) {
+            const data = await prisma.newsCategory.findFirst({
+                where,
+                select: {
+                    id: true,
+                    name: true,
+                    _count: { select: { news: true } },
+                    news: {
+                        ...(Number(page) > 1 && { skip: (Number(page) - 1) * 5 }),
+                        take: 5,
+                        orderBy: { createdAt: 'desc' },
+                        select: {
+                            title: true,
+                            cover: true,
+                            description: true,
+                            from: true,
+                            time: true,
+                            url: true,
+                            id: true,
+                            data: {
+                                include: {
+                                    content: { include: { parts: true } },
+                                    quote: { include: { quoteParts: true } },
+                                    list: { include: { parts: true } },
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            return res.json({
+                id: data.id,
+                name: data.name,
+                totalPages: Math.ceil(data._count.news / 5),
+                news: format(data.news),
+            });
+        }
 
         const total = await prisma.newsCategory.count({ where });
         const totalPages = Math.ceil(total / 5);
@@ -56,18 +101,14 @@ class NewsController {
         const data = await prisma.newsCategory.findMany({
             ...(Number(page) > 1 && { skip: (Number(page) - 1) * 5 }),
             orderBy: { name: 'asc' },
-            where,
             take: 5,
+            where,
             select: {
                 id: true,
                 name: true,
-                _count: {
-                    select: {
-                        news: true,
-                    },
-                },
+                _count: { select: { news: true } },
                 news: {
-                    take: 10,
+                    take: 5,
                     orderBy: { createdAt: 'desc' },
                     select: {
                         title: true,
@@ -91,14 +132,16 @@ class NewsController {
 
         return res.json({
             totalPages,
-            data: data.map(item => {
-                return {
-                    id: item.id,
-                    name: item.name,
-                    totalPages: Math.ceil(item._count.news / 10),
-                    news: format(item.news),
-                };
-            }),
+            data: data
+                .filter(c => c.news.length >= 1)
+                .map(item => {
+                    return {
+                        id: item.id,
+                        name: item.name,
+                        totalPages: Math.ceil(item._count.news / 5),
+                        news: format(item.news),
+                    };
+                }),
         });
     }
 

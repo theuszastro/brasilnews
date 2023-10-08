@@ -15,13 +15,13 @@ export class G1Parser {
 
         for (let { content, quote, title, list, image } of data.contents) {
             if (content) {
-                contents.push({ content: this.parse(content) });
+                contents.push({ content: this.parse(content).filter(c => c.text.length >= 1 || c.isLink) });
 
                 continue;
             }
 
             if (quote) {
-                contents.push({ quote: this.parse(quote) });
+                contents.push({ quote: this.parse(quote).filter(c => c.text.length >= 1 || c.isLink) });
 
                 continue;
             }
@@ -37,17 +37,26 @@ export class G1Parser {
             }
 
             if (list.length >= 1) {
-                contents.push({ list: list.map(i => this.parse(i)).flat() });
+                contents.push({
+                    list: list.map(i => this.parse(i)),
+
+                    // .filter(c => c.text.length >= 1 || c.isLink),
+                });
 
                 continue;
             }
 
-            contents.push({ image });
+            if (image && image.length >= 1) {
+                contents.push({ image });
+            }
         }
 
         return {
-            from: data.from,
-            time: data.time,
+            from: this.parse(data.from)
+                .map(item => item.text)
+                .join(' ')
+                .trim(),
+            time: data.time.trim(),
             contents,
         };
     }

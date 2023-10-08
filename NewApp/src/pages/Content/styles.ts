@@ -37,7 +37,9 @@ export const Description = styled.Text.attrs({
     font-family: 'Poppins-Medium';
 `;
 
-export const Image = styled.Image`
+export const Image = styled.Image.attrs({
+    // resizeMode: 'contain',
+})`
     width: ${wp('90%')}px;
     height: ${wp('50%')}px;
 
@@ -78,6 +80,8 @@ export const ContentText = styled.Text.attrs({
     font-size: ${wp('3.6%')}px;
 
     margin-bottom: ${wp('2%')}px;
+
+    width: ${wp('90%')}px;
 `;
 
 export const List = styled.View`
