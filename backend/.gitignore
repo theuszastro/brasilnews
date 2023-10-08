@@ -1,0 +1,8 @@
+node_modules
+build
+
+database.sqlite
+database.sqlite-journal
+
+static/*.jpg
+static/*.jpeg

@@ -1,0 +1,92 @@
+datasource db {
+    provider = "sqlite"
+    url = env("DATABASE_URL")
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+model NewsCategory {
+    id String @id
+    name String
+    portalName String
+    
+    news News[]
+}
+
+model News {
+    id String @id
+    title String
+    description String
+    from String
+    time String
+    cover String
+    url String
+    updatedAt String
+    createdAt String
+
+    data NewsArticle[]
+
+    categoryId String?
+    category NewsCategory? @relation(fields: [categoryId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+}
+
+model NewsContent {
+    id String @id
+
+    parts NewsContentPart[]
+    quoteParts NewsContentPart[] @relation(name: "quote")
+
+    articleId String?
+    article NewsArticle? @relation(fields: [articleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+    
+    articleQuoteId String?
+    articleQuote NewsArticle? @relation(name: "quote", fields: [articleQuoteId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+}
+
+model NewsArticle {
+    id String @id
+
+    content NewsContent[]
+    quote NewsContent[] @relation("quote")
+    title String?
+    image String?
+
+    isAd Boolean @default(false)
+
+    list NewsList[]
+
+    newsId String?
+    news News? @relation(fields: [newsId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+}
+
+model NewsContentPart {
+    id String @id   
+    text String
+
+    isBold Boolean
+    isHighlight Boolean
+    isLink Boolean
+
+    href String?
+
+    contentId String?
+    content NewsContent? @relation(fields: [contentId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+    
+    listId String?
+    list NewsList? @relation(fields: [listId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+    
+    quoteId String?
+    quote NewsContent? @relation(name: "quote", fields: [quoteId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+}
+
+model NewsList {
+    id String @id
+    
+    parts NewsContentPart[]
+
+    articleId String?
+    article NewsArticle? @relation(fields: [articleId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+}
+

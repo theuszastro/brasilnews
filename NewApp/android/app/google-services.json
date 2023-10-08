@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "447879351314",
+    "project_id": "news-brasil-f427a",
+    "storage_bucket": "news-brasil-f427a.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:447879351314:android:9f8a584cfc87724b99dccb",
+        "android_client_info": {
+          "package_name": "com.stumps.brasilnews"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "447879351314-5hnkst4rfouvsepbs5k72iqft65oqd7j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACg3I7Zqs_k7ErCbGt36gQwTf0E1uXDZY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "447879351314-5hnkst4rfouvsepbs5k72iqft65oqd7j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
